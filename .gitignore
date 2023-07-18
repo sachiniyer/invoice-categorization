@@ -3,3 +3,6 @@
 *.log
 tmp/
 .env
+dist
+target
+__pycache__
