@@ -22,11 +22,9 @@ Just gives status of application
 
 ##### Response
 
-```json
-{
-    "result": bool
-}
-```
+| Parameter | Type | Description    | Required |
+|-----------|------|----------------|----------|
+| status    | bool | result of call | Yes      |
 
 
 ### /users
@@ -35,21 +33,18 @@ Just gives status of application
 Creates a user if it does not exist
 
 ##### Request
-```json
-{
-    "username": string,
-    "password": sha256 string
-}
-```
+
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| password  | sha256 string | hashed password | Yes      |
 
 ##### Response
 
-```json
-{
-    "result": bool,
-    "jwt"?: jwt token
-}
-```
+| Parameter | Type      | Description    | Required |
+|-----------|-----------|----------------|----------|
+| status    | bool      | result of call | Yes      |
+| jwt       | jwt token | auth jwt token | No       |
 
 
 #### POST
@@ -57,21 +52,17 @@ Logs user in and give jwt with successful password
 
 ##### Request
 
-```json
-{
-    "username": string,
-    "password": sha256 string
-}
-```
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| password  | sha256 string | hashed password | Yes      |
 
 ##### Response
 
-```json
-{
-    "result": bool,
-    "jwt"?: jwt token
-}
-```
+| Parameter | Type      | Description    | Required |
+|-----------|-----------|----------------|----------|
+| status    | bool      | result of call | Yes      |
+| jwt       | jwt token | auth jwt token | No       |
 
 
 #### PATCH
@@ -79,23 +70,18 @@ Updates Password
 
 ##### Request
 
-```json
-{
-    "username": string,
-    "password": sha256 string,
-    "jwt": jwt token
-}
-
-```
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| password  | sha256 string | hashed password | Yes      |
+| jwt       | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
-```json
-{
-    "result": bool,
-    "jwt": jwt token
-}
-```
+| Parameter | Type      | Description    | Required |
+|-----------|-----------|----------------|----------|
+| status    | bool      | result of call | Yes      |
+| jwt       | jwt token | auth jwt token | No       |
 
 
 #### Delete
@@ -103,21 +89,17 @@ Deletes a user
 
 ##### Request
 
-```json
-{
-    "username": string,
-    "jwt": jwt token
-}
-
-```
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| jwt       | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
-```json
-{
-    "result": bool
-}
-```
+| Parameter | Type | Description    | Required |
+|-----------|------|----------------|----------|
+| status    | bool | result of call | Yes      |
+
 
 ## Websocket Endpoints
 
@@ -126,101 +108,75 @@ Creates a new file for processing
 
 ##### Request
 
-```json
-{
-    "username": string,
-    "file": object,
-    "jwt": jwt token
-}
-
-```
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| file      | binary object | excel file      | Yes      |
+| jwt       | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
 ###### 1
 
-```json
-{
-    "result": bool
-}
-```
+| Parameter | Type | Description    | Required |
+|-----------|------|----------------|----------|
+| status    | bool | result of call | Yes      |
 
 ###### 2
 
-```json
-{
-    "fileid": num,
-    "result": bool
-}
-```
+| Parameter | Type | Description    | Required |
+|-----------|------|----------------|----------|
+| fileid    | num  | id of file     | Yes      |
+| status    | bool | result of call | Yes      |
 
 ### list
 Get files with optional file name to filter files
 
 ##### Request
 
-```json
-{
-    "username": string,
-    "filename"?: string,
-    "jwt": jwt token
-}
-
-```
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| filename  | string        | name of file    | No       |
+| jwt       | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
-
-```json
-{
-    "fileids": [num],
-    "result": bool
-}
-```
+| Parameter | Type  | Description    | Required |
+|-----------|-------|----------------|----------|
+| fileids   | [num] | ids of files   | Yes      |
+| status    | bool  | result of call | Yes      |
 
 
 ### get
 
 ##### Request
 
-```json
-{
-    "username": string,
-    "fileid": num,
-    "jwt": jwt token
-}
-
-```
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| fileid    | num           | id of file      | Yes      |
+| jwt       | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
-
-```json
-{
-    "file": object,
-    "result": bool
-}
-```
-
+| Parameter | Type          | Description    | Required |
+|-----------|---------------|----------------|----------|
+| file      | binary object | file data      | No       |
+| status    | bool          | result of call | Yes      |
 
 ### delete
 
 ##### Request
 
-```json
-{
-    "username": string,
-    "fileid": num,
-    "jwt": jwt token
-}
-
-```
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| username  | string        | username        | Yes      |
+| fileid    | num           | id of file      | Yes      |
+| jwt       | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
-
-```json
-{
-    "result": bool
-}
-```
+| Parameter | Type | Description    | Required |
+|-----------|------|----------------|----------|
+| status    | bool | result of call | Yes      |
