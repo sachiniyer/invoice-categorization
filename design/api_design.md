@@ -14,19 +14,6 @@ Just a simple HTML front
 <p>Invoice Categorization API</p>
 
 ```
-
-### /status
-
-#### GET
-Just gives status of application
-
-##### Response
-
-| Parameter | Type | Description    | Required |
-|-----------|------|----------------|----------|
-| status    | bool | result of call | Yes      |
-
-
 ### /users
 
 #### PUT
