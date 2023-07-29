@@ -6,11 +6,13 @@ It allows interation with invoice categorization model.
 """
 
 import os
-from flask import Flask
+from flask import Flask, request
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from dotenv import load_dotenv
 import boto3
+
+from backend.routes.users import user_handler
 
 load_dotenv()
 
@@ -31,7 +33,7 @@ session = boto3.Session(
 db_client = session.client('dynamodb')
 
 
-@app.route("/", methods=['GET'])
+@app.route('/', methods=['GET'])
 def root():
     """
     Root route.
@@ -39,11 +41,17 @@ def root():
     It takes a POST request of an excel file and returns back data
     Takes in excel in form data with key "data"
     """
-    # if request.method == 'POST':
-    #     file = request.files['data']
-    #     df = to_pandas(file)
-    #     return df.to_json(orient='records')
     return "<p>Invoice Categorization API</p>"
+
+
+@app.route('/users', methods=['PUT', 'POST', 'PATCH', 'DELETE'])
+def users():
+    """
+    Users route.
+
+    Calls user handler and returns the response
+    """
+    return user_handler(request, db_client)
 
 
 @socketio.on('message')

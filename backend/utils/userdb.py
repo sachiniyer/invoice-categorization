@@ -9,7 +9,7 @@ Utility functions to interact with database.
 """
 import os
 import hmac
-from types.errors import UsernameError
+from backend.types.errors import UsernameError, DBError
 
 
 def get_user(username, db_client):
@@ -27,21 +27,20 @@ def get_user(username, db_client):
 
     try:
         response = db_client.get_item(
-            TableName=os.enviorn.get('AWS_TABLE_NAME'),
+            TableName=os.environ.get('AWS_TABLE_NAME'),
             Key=key
         )
-
-        item = response.get('item')
-        if item:
-            return {
-                'username': username,
-                'password': item['password']['S']
-            }
-        else:
-            return None
-
     except Exception as e:
-        return e
+        raise DBError(str(e))
+
+    item = response.get('Item')
+    if item:
+        return {
+            'username': username,
+            'password': item['password']['S']
+        }
+    else:
+        raise UsernameError(username)
 
 
 def create_user(username, password, db_client):
@@ -50,13 +49,16 @@ def create_user(username, password, db_client):
 
     Only creates a new user if the username does not exist
     """
-    try:
-        db_response = get_user(username, db_client)
-    except Exception as e:
-        return e
+    found = None
 
-    if db_response:
-        return UsernameError("username")
+    try:
+        found = get_user(username, db_client)
+    except Exception as e:
+        if not isinstance(e, UsernameError):
+            raise e
+
+    if found:
+        raise UsernameError(username)
 
     item = {
         'username': {
@@ -70,11 +72,11 @@ def create_user(username, password, db_client):
     try:
         item = db_client.put_item(
             TableName=os.environ.get('AWS_TABLE_NAME'),
-            item=item
+            Item=item
         )
         return item
     except Exception as e:
-        return e
+        raise DBError(str(e))
 
 
 def delete_user(username, db_client):
@@ -84,12 +86,9 @@ def delete_user(username, db_client):
     Deletes a user given a username
     """
     try:
-        db_response = get_user(username, db_client)
+        get_user(username, db_client)
     except Exception as e:
-        return e
-
-    if not db_response:
-        return UsernameError("username")
+        raise e
 
     key = {
         'username': {
@@ -104,7 +103,7 @@ def delete_user(username, db_client):
         )
         return response
     except Exception as e:
-        return e
+        raise DBError(str(e))
 
 
 def update_user(username, password, db_client):
@@ -114,12 +113,9 @@ def update_user(username, password, db_client):
     Updates a user's password
     """
     try:
-        db_response = get_user(username, db_client)
+        get_user(username, db_client)
     except Exception as e:
-        return e
-
-    if not db_response:
-        return UsernameError("username")
+        raise e
 
     key = {
         'username': {
@@ -127,23 +123,21 @@ def update_user(username, password, db_client):
         }
     }
 
-    expression = "SET password = :val"
-
-    value = {
-        ':val': password
-    }
-
     try:
         response = db_client.update_item(
             TableName=os.environ.get('AWS_TABLE_NAME'),
             Key=key,
-            UpdateExpression=expression,
-            ExpressionAttributeValues=value,
-            ReturnValues="UPDATED_NEW"
+            UpdateExpression='SET password = :password',
+            ExpressionAttributeValues={
+                ':password': {
+                    'S': password
+                }
+            },
+            ReturnValues='ALL_NEW'
         )
         return response
     except Exception as e:
-        return e
+        raise DBError(str(e))
 
 
 def verify_user(username, password, db_client):
@@ -155,9 +149,6 @@ def verify_user(username, password, db_client):
     try:
         db_response = get_user(username, db_client)
     except Exception as e:
-        return e
-
-    if not db_response:
-        return UsernameError("username")
+        raise e
 
     return hmac.compare_digest(password, db_response['password'])
