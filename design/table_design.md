@@ -20,8 +20,12 @@ Primary Key - **Username**
 | user1        | password1       |
 | user2        | password2       |
 
-# File Object Storage
+# File Object Storage 
 S3
+
+2 buckets (same structure)
+1. uploaded
+2. processed
 
 | **FileID** | **File Content** |
 |------------|------------------|
