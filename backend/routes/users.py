@@ -8,9 +8,12 @@ Handles the user route:
   DELETE
 """
 
-from backend.utils.userdb import create_user, delete_user, update_user, verify_user
+from backend.utils.userdb import (create_user, delete_user,
+                                  update_user, verify_user)
+from backend.utils.args import parse_args
 from backend.utils.jwt import generate_jwt, verify_jwt
-from backend.types.errors import UsernameError, JWTError, DBError
+from backend.utils.filedb import delete_user_ingester
+from backend.types.errors import CustomError, PasswordError, JSONError
 from flask import jsonify
 
 
@@ -20,18 +23,12 @@ def error_handler(e):
 
    handles errors and returns understandable error
    """
-   if isinstance(e, UsernameError):
+   if isinstance(e, CustomError):
+      message, response = e.response()
       return jsonify({"status": False,
-                      "error": "Username invalid"}), 400
-   if isinstance(e, JWTError):
-      if e.timeout:
-         return jsonify({"status": False,
-                         "error": "JWT timed out"}), 400
-      return jsonify({"status": False,
-                      "error": "Error processing JWT"}), 400
-   if isinstance(e, DBError):
-      return jsonify({"status": False,
-                      "error": "Error with Database"}), 500
+                      "error": message}), response
+   return jsonify({"status": False,
+                   "error": 'unexpected error'}), 500
 
 
 def user_put(username, password, db_client):
@@ -40,11 +37,8 @@ def user_put(username, password, db_client):
 
    Creates a user if it does not exist
    """
-   try:
-      create_user(username, password, db_client)
-      return jsonify({"status": True}), 200
-   except Exception as e:
-      return error_handler(e)
+   create_user(username, password, db_client)
+   return jsonify({"status": True}), 200
 
 
 def user_post(username, password, db_client):
@@ -53,15 +47,11 @@ def user_post(username, password, db_client):
 
    Logs user in and gives jwt with successful password
    """
-   try:
-      if verify_user(username, password, db_client):
-         jwt = generate_jwt(username)
-         return jsonify({"status": True,
-                         "jwt": jwt}), 200
-      return jsonify({"status": False,
-                      "error": "Password invalid"}), 400
-   except Exception as e:
-      return error_handler(e)
+   if verify_user(username, password, db_client):
+      jwt = generate_jwt(username)
+      return jsonify({"status": True,
+                      "jwt": jwt}), 200
+   raise PasswordError(f'{password} is invalid')
 
 
 def user_patch(jwt, password, db_client):
@@ -70,70 +60,50 @@ def user_patch(jwt, password, db_client):
 
    Updates a password for a user
    """
-   try:
-      username = verify_jwt(jwt)
-      update_user(username, password, db_client)
-      return jsonify({"status": True}), 200
-   except Exception as e:
-      print(e)
-      return error_handler(e)
+   username = verify_jwt(jwt)
+   update_user(username, password, db_client)
+   return jsonify({"status": True}), 200
 
 
-def user_delete(jwt, db_client):
+def user_delete(jwt, db_client, s3_client):
    """
    Delete method.
 
    Deletes a user
    """
-   try:
-      username = verify_jwt(jwt)
-      delete_user(username, db_client)
-      return jsonify({"status": True}), 200
-   except Exception as e:
-      return error_handler(e)
+   username = verify_jwt(jwt)
+   delete_user_ingester(username, db_client, s3_client)
+   delete_user(username, db_client)
+   return jsonify({"status": True}), 200
 
 
-def user_handler(request, db_client):
+def user_handler(request, db_client, s3_client):
    """
    User handler.
 
    This handles all the requests for the user
    """
-   if not request.is_json:
-      return jsonify({"error": "Not JSON"}), 400
+   try:
+      if not request.is_json:
+         raise JSONError('json invalid', True)
 
-   data = request.json
+      data = request.json
 
-   if request.method == 'PUT':
-      username = data.get('username')
-      password = data.get('password')
-      if (not username) or (not password):
-         return jsonify({"status": False,
-                         "error": (f'username present: {username != None},'
-                                   f'password present: {password != None}')})
-      return user_put(username, password, db_client)
+      if request.method == 'PUT':
+         args = parse_args(['username', 'password'], data)
+         return user_put(args['username'], args['password'], db_client)
 
-   if request.method == 'POST':
-      username = data.get('username')
-      password = data.get('password')
-      if (not username) or (not password):
-         return jsonify({"status": False,
-                         "error": (f'username present: {username != None},'
-                                   f'password present: {password != None}')})
-      return user_post(username, password, db_client)
+      if request.method == 'POST':
+         args = parse_args(['username', 'password'], data)
+         return user_post(args['username'], args['password'], db_client)
 
-   if request.method == 'PATCH':
-      token = data.get('token')
-      password = data.get('password')
-      if (not token) or (not password):
-         return jsonify({"status": False,
-                         "error": (f'token present: {token != None},'
-                                   f'password present: {password != None}')})
-      return user_patch(token, password, db_client)
+      if request.method == 'PATCH':
+         args = parse_args(['token', 'password'], data)
+         return user_patch(args['token'], args['password'], db_client)
 
-   if request.method == 'DELETE':
-      token = data.get('token')
-      if not token:
-         return jsonify({"status": False,
-                         "error": f'token present: {token != None}'})
-      return user_delete(token, db_client)
+      if request.method == 'DELETE':
+         args = parse_args(['token'], data)
+         return user_delete(args['token'], db_client, s3_client)
+
+   except Exception as e:
+      return error_handler(e)

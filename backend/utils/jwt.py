@@ -44,12 +44,10 @@ def verify_jwt(token):
         decoded = jwt.decode(token,
                              os.environ.get('JWT_KEY'),
                              algorithms=[os.environ.get('JWT_ALGO')])
-
-        if decoded['exp'] < int(time.time()):
-            raise JWTError("jwt time invalid", True)
         return decoded['data']['username']
 
     except Exception as e:
-        if isinstance(e, JWTError):
-            return e
+        print(type(e))
+        if isinstance(e, jwt.exceptions.ExpiredSignatureError):
+            raise JWTError(str(e), True)
         raise JWTError(str(e), False)

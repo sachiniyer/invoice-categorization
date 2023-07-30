@@ -27,7 +27,7 @@ def get_user(username, db_client):
 
     try:
         response = db_client.get_item(
-            TableName=os.environ.get('AWS_TABLE_NAME'),
+            TableName=os.environ.get('AWS_USER_TABLE_NAME'),
             Key=key
         )
     except Exception as e:
@@ -71,7 +71,7 @@ def create_user(username, password, db_client):
 
     try:
         item = db_client.put_item(
-            TableName=os.environ.get('AWS_TABLE_NAME'),
+            TableName=os.environ.get('AWS_USER_TABLE_NAME'),
             Item=item
         )
         return item
@@ -98,7 +98,7 @@ def delete_user(username, db_client):
 
     try:
         response = db_client.delete_item(
-            TableName=os.environ.get('AWS_TABLE_NAME'),
+            TableName=os.environ.get('AWS_USER_TABLE_NAME'),
             Key=key
         )
         return response
@@ -125,7 +125,7 @@ def update_user(username, password, db_client):
 
     try:
         response = db_client.update_item(
-            TableName=os.environ.get('AWS_TABLE_NAME'),
+            TableName=os.environ.get('AWS_USER_TABLE_NAME'),
             Key=key,
             UpdateExpression='SET password = :password',
             ExpressionAttributeValues={
