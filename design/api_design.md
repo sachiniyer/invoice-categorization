@@ -31,7 +31,7 @@ Creates a user if it does not exist
 | Parameter | Type      | Description    | Required |
 |-----------|-----------|----------------|----------|
 | status    | bool      | result of call | Yes      |
-| jwt       | jwt token | auth jwt token | No       |
+| token     | jwt token | auth jwt token | No       |
 
 
 #### POST
@@ -49,7 +49,7 @@ Logs user in and give jwt with successful password
 | Parameter | Type      | Description    | Required |
 |-----------|-----------|----------------|----------|
 | status    | bool      | result of call | Yes      |
-| jwt       | jwt token | auth jwt token | No       |
+| token     | jwt token | auth jwt token | No       |
 
 
 #### PATCH
@@ -61,14 +61,14 @@ Updates Password
 |-----------|---------------|-----------------|----------|
 | username  | string        | username        | Yes      |
 | password  | sha256 string | hashed password | Yes      |
-| jwt       | jwt token     | jwt token       | Yes      |
+| token     | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
 | Parameter | Type      | Description    | Required |
 |-----------|-----------|----------------|----------|
 | status    | bool      | result of call | Yes      |
-| jwt       | jwt token | auth jwt token | No       |
+| token     | jwt token | auth jwt token | No       |
 
 
 #### Delete
@@ -79,7 +79,7 @@ Deletes a user
 | Parameter | Type          | Description     | Required |
 |-----------|---------------|-----------------|----------|
 | username  | string        | username        | Yes      |
-| jwt       | jwt token     | jwt token       | Yes      |
+| token     | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
@@ -90,16 +90,35 @@ Deletes a user
 
 ## Websocket Endpoints
 
-### create
-Creates a new file for processing
+### upload
+Uploads a new file for processing
 
 ##### Request
 
 | Parameter | Type          | Description     | Required |
 |-----------|---------------|-----------------|----------|
-| username  | string        | username        | Yes      |
-| file      | binary object | excel file      | Yes      |
-| jwt       | jwt token     | jwt token       | Yes      |
+| filechunk | binary object | excel file      | Yes      |
+| token     | jwt token     | jwt token       | Yes      |
+| fileid    | num           | id of file      | No       |
+
+##### Response
+
+###### 1
+
+| Parameter | Type | Description    | Required |
+|-----------|------|----------------|----------|
+| fileid    | num  | id of file     | Yes      |
+| status    | bool | result of call | Yes      |
+
+### process
+Processes an existing file
+
+##### Request
+
+| Parameter | Type          | Description     | Required |
+|-----------|---------------|-----------------|----------|
+| fileid    | num           | id of file      | Yes      |
+| token     | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
@@ -111,10 +130,10 @@ Creates a new file for processing
 
 ###### 2
 
-| Parameter | Type | Description    | Required |
-|-----------|------|----------------|----------|
-| fileid    | num  | id of file     | Yes      |
-| status    | bool | result of call | Yes      |
+| Parameter | Type   | Description    | Required |
+|-----------|--------|----------------|----------|
+| fileid    | num    | id of file     | Yes      |
+| status    | bool   | result of call | Yes      |
 
 ### list
 Get files with optional file name to filter files
@@ -123,9 +142,8 @@ Get files with optional file name to filter files
 
 | Parameter | Type          | Description     | Required |
 |-----------|---------------|-----------------|----------|
-| username  | string        | username        | Yes      |
 | filename  | string        | name of file    | No       |
-| jwt       | jwt token     | jwt token       | Yes      |
+| token     | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
@@ -141,9 +159,8 @@ Get files with optional file name to filter files
 
 | Parameter | Type          | Description     | Required |
 |-----------|---------------|-----------------|----------|
-| username  | string        | username        | Yes      |
 | fileid    | num           | id of file      | Yes      |
-| jwt       | jwt token     | jwt token       | Yes      |
+| token     | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
@@ -158,9 +175,8 @@ Get files with optional file name to filter files
 
 | Parameter | Type          | Description     | Required |
 |-----------|---------------|-----------------|----------|
-| username  | string        | username        | Yes      |
 | fileid    | num           | id of file      | Yes      |
-| jwt       | jwt token     | jwt token       | Yes      |
+| token     | jwt token     | jwt token       | Yes      |
 
 ##### Response
 
