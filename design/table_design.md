@@ -36,6 +36,7 @@ Primary Key - **FileID**
 Sort Key - **Username**
 
 | **FileID** | **Username** | **Filename** | **Processed** |
+|------------|--------------|--------------|---------------|
 | _string_   | _string_     | _string_     | _bool_        |
 | 1          | user1        | file1        | false         |
 | 2          | user2        | file2        | true          |
