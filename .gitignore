@@ -26,3 +26,5 @@ yarn-error.log*
 /model/clean_data/data
 /model/clean_data/mock*
 /model/clean_data/target
+
+.ipynb_checkpoints
