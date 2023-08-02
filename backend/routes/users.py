@@ -8,11 +8,11 @@ Handles the user route:
   DELETE
 """
 
-from backend.utils.userdb import (create_user, delete_user,
-                                  update_user, verify_user)
+from backend.utils.db.userdb import (create_user, delete_user,
+                                     update_user, verify_user)
 from backend.utils.args import parse_args
 from backend.utils.jwt import generate_jwt, verify_jwt
-from backend.utils.filedb import delete_user_ingester
+from backend.utils.db.filedb import delete_user_ingester
 from backend.types.errors import CustomError, PasswordError, JSONError
 from flask import jsonify
 
@@ -88,6 +88,8 @@ def user_handler(request, db_client, s3_client):
          raise JSONError('json invalid', True)
 
       data = request.json
+      if request.method == 'GET':
+         return "<p>Invoice Categorization API</p>"
 
       if request.method == 'PUT':
          args = parse_args(['username', 'password'], data)

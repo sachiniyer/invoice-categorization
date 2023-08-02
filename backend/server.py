@@ -13,7 +13,8 @@ from dotenv import load_dotenv
 import boto3
 
 from backend.routes.users import user_handler
-from backend.routes.files import upload_handler, list_handler
+from backend.routes.files import (upload_handler, list_handler,
+                                  delete_handler, get_handler, process_handler)
 
 load_dotenv()
 
@@ -36,23 +37,12 @@ db_client = session.client('dynamodb')
 s3_client = session.client('s3')
 
 
-@app.route('/', methods=['GET'])
+@app.route('/', methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
 def root():
     """
     Root route.
 
-    It takes a POST request of an excel file and returns back data
-    Takes in excel in form data with key "data"
-    """
-    return "<p>Invoice Categorization API</p>"
-
-
-@app.route('/users', methods=['PUT', 'POST', 'PATCH', 'DELETE'])
-def users():
-    """
-    Users route.
-
-    Calls user handler and returns the response
+    Handles all user management
     """
     return user_handler(request, db_client, s3_client)
 
@@ -84,7 +74,7 @@ def process_file(message):
 
     Sends a file for processsing.
     """
-    socketio.emit('process', message)
+    process_handler(message, socketio, db_client, s3_client)
 
 
 @socketio.on('list')
@@ -104,7 +94,7 @@ def get_file(message):
 
     Gets the content for a file.
     """
-    socketio.emit('get', message)
+    get_handler(message, socketio, db_client, s3_client)
 
 
 @socketio.on('delete')
@@ -114,7 +104,7 @@ def delete_file(message):
 
     Deletes a given file.
     """
-    socketio.emit('delete', message)
+    delete_handler(message, socketio, db_client, s3_client)
 
 
 if __name__ == '__main__':

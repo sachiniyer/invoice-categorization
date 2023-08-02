@@ -11,8 +11,9 @@ Handes the file route from websocket messages:
 from backend.utils.jwt import verify_jwt
 from backend.types.errors import CustomError
 from backend.utils.args import parse_args, parse_json
-from backend.utils.filedb import (file_ingester, list_ingester,
-                                  delete_ingester)
+from backend.utils.db.filedb import (file_ingester, list_ingester,
+                                     delete_ingester, get_ingester,
+                                     process_ingester)
 from flask import jsonify
 import secrets
 import string
@@ -69,7 +70,7 @@ def upload_handler(message, socketio, db_client, s3_client):
         finished = False
         if res == -1:
             finished = True
-        socketio.emit(jsonify({
+        socketio.emit('upload', jsonify({
             'status': True,
             'finished': finished,
             'chunk_number': res,
@@ -77,7 +78,7 @@ def upload_handler(message, socketio, db_client, s3_client):
         }))
 
     except Exception as e:
-        socketio.emit(error_handler(e))
+        socketio.emit('upload', error_handler(e))
 
 
 def list_handler(message, socketio, db_client):
@@ -94,13 +95,67 @@ def list_handler(message, socketio, db_client):
 
         res = list_ingester(username, db_client)
 
-        socketio.emit(jsonify({
+        socketio.emit('list', jsonify({
             'status': True,
             'files': res,
             "response": 200
         }))
     except Exception as e:
-        socketio.emit(error_handler(e))
+        socketio.emit('list', error_handler(e))
+
+
+def process_handler(message, socketio, db_client, s3_client):
+    """
+    Process function.
+
+    Takes a file id and runs the model on that file and writes the output out.
+    """
+    try:
+        message_json = parse_json(message)
+        args = parse_args(['token', 'fileid'], message_json)
+
+        username = verify_jwt(args['token'])
+
+        socketio.emit('process', jsonify({
+            'status': True,
+            'finished': False,
+            'fileid': args['fileid'],
+            "response": 200
+        }))
+
+        process_ingester(username, args['fileid'], db_client, s3_client)
+
+        socketio.emit('process', jsonify({
+            'status': True,
+            'finished': True,
+            'fileid': args['fileid'],
+            "response": 200
+        }))
+
+    except Exception as e:
+        socketio.emit('process', error_handler(e))
+
+
+def get_handler(message, socketio, db_client, s3_client):
+    """
+    Get function.
+
+    Takes in a fileid and streams back the chunks of the file
+    """
+    try:
+        message_json = parse_json(message)
+        args = parse_args(['token', 'fileid'], message_json)
+
+        username = verify_jwt(args['token'])
+        get_ingester(username, args['fileid'], socketio, db_client, s3_client)
+        socketio.emit('get', jsonify({
+            'status': True,
+            "response": 200,
+            "finished": True
+        }))
+
+    except Exception as e:
+        socketio.emit('get', error_handler(e))
 
 
 def delete_handler(message, socketio, db_client, s3_client):
@@ -115,9 +170,9 @@ def delete_handler(message, socketio, db_client, s3_client):
 
         username = verify_jwt(args['token'])
         delete_ingester(username, args['fileid'], db_client, s3_client)
-        socketio.emit(jsonify({
+        socketio.emit('delete', jsonify({
             'status': True,
             "response": 200
         }))
     except Exception as e:
-        socketio.emit(error_handler(e))
+        socketio.emit('delete', error_handler(e))

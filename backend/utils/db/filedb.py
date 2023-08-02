@@ -5,7 +5,9 @@ Interacts with the dynamodb database and s3
 bucket to upload and download files.
 """
 import os
-from backend.types.errors import DBError, FileIDError, UsernameError
+from flask import jsonify
+from backend.types.errors import DBError, FileIDError, UsernameError, JSONError
+from backend.utils.model.model import model_handler
 
 ongoing_uploads = {}
 
@@ -105,6 +107,40 @@ def delete_item_db(fileid, db_client):
         raise DBError(str(e))
 
 
+def mark_item_db(fileid, username, db_client):
+    """
+    Mark Item function.
+
+    Marks a file as processed in dynamo.
+    """
+    try:
+        get_item_user(fileid, username, db_client)
+    except Exception as e:
+        raise e
+
+    key = {
+        'fileid': {
+            'S': fileid
+        }
+    }
+
+    try:
+        response = db_client.update_item(
+            TableName=os.environ.get('AWS_FILE_TABLE_NAME'),
+            Key=key,
+            UpdateExpression='SET processed = :processed',
+            ExpressionAttributeValues={
+                ':processed': {
+                    'BOOL': True
+                }
+            },
+            ReturnValues='ALL_NEW'
+        )
+        return response
+    except Exception as e:
+        raise DBError(str(e))
+
+
 def delete_item_s3(fileid, bucket, s3_client):
     """
     Delete item s3 function.
@@ -140,6 +176,24 @@ def get_chunk_uploader(fileid, bucket, total_chunks, s3_client):
         except Exception as e:
             raise DBError(str(e))
     return ongoing_uploads[fileid]
+
+
+def send_chunk(socketio, chunk_data, chunk_number, num_chunks):
+    """
+    Send chunk.
+
+    Sends a chunk of data back to the client
+    """
+    try:
+        json = jsonify('status', True,
+                       'response', 200,
+                       'finished', False,
+                       'chunk', chunk_data,
+                       'chunk_number', chunk_number,
+                       'total_chunks', num_chunks)
+        socketio.emit('get', json)
+    except Exception as e:
+        raise JSONError(str(e))
 
 
 def upload_chunk(fileid, chunk, chunk_number,
@@ -180,6 +234,40 @@ def upload_chunk(fileid, chunk, chunk_number,
             raise DBError(str(e))
         return -1
     return chunk_number
+
+
+def download_file(fileid, s3_client):
+    """
+    Download file.
+
+    Downloads file to run model on.
+    """
+    try:
+        path = os.path.join(os.enivorn.get('MODEL_DOWNLOAD_PATH'), fileid)
+        s3_client.download_file(
+            os.environ.get('AWS_S3_UPLOAD_NAME'),
+            fileid,
+            path
+        )
+    except Exception as e:
+        raise DBError(str(e))
+
+
+def upload_file(fileid, s3_client):
+    """
+    Upload file.
+
+    Uploads file that has been modified
+    """
+    try:
+        path = os.path.join(os.enivorn.get('MODEL_UPLOAD_PATH'), fileid)
+        s3_client.upload_file(
+            path,
+            os.environ.get('AWS_S3_UPLOAD_NAME'),
+            fileid
+        )
+    except Exception as e:
+        raise DBError(str(e))
 
 
 def file_ingester(username, fileid, filename, chunk, chunk_number,
@@ -229,6 +317,58 @@ def list_ingester(username, db_client):
             }
         return res
     except Exception as e:
+        raise DBError(str(e))
+
+
+def process_ingester(username, fileid, db_client, s3_client):
+    """
+    Process ingester.
+
+    Runs model on a file sitting in the db, and writes output back
+    """
+    get_item_user(fileid, username, db_client)
+    download_file(fileid, s3_client)
+    model_handler(fileid)
+    upload_file(fileid, s3_client)
+    mark_item_db(fileid, db_client)
+
+
+def get_ingester(username, fileid, socketio, db_client, s3_client):
+    """
+    Get ingester.
+
+    Stream back chunks of a processed file.
+    """
+    get_item_user(fileid, username, db_client)
+
+    try:
+        obj = s3_client.Object(os.environ.get('AWS_S3_PROCESSED_NAME'), fileid)
+    except Exception as e:
+        raise DBError(str(e))
+
+    try:
+        obj.metadata
+    except s3_client.meta.client.exceptions.NoSuchKey:
+        raise FileIDError(fileid)
+
+    try:
+        object_size = obj.content_length
+        chunk_size = os.enviorn.get('CHUNK_SIZE')
+        num_chunks = (object_size // chunk_size) + 1
+
+        byte_range = 'bytes=0-' + str(chunk_size - 1)
+
+        for chunk_number in range(num_chunks):
+            if chunk_number > 0:
+                byte_range = (f'bytes={str(chunk_number * chunk_size)}-'
+                              f'{str(((chunk_number + 1) * chunk_size) - 1)}')
+                response = obj.get(Range=byte_range)
+                chunk_data = response['Body'].read()
+                socketio.emit('get',)
+                send_chunk(socketio, chunk_data, chunk_number, num_chunks)
+    except Exception as e:
+        if isinstance(e, JSONError):
+            raise e
         raise DBError(str(e))
 
 

@@ -23,4 +23,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-/data
+/model/clean_data/data
+/model/clean_data/mock*
+/model/clean_data/target
