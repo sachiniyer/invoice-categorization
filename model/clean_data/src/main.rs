@@ -147,6 +147,7 @@ fn get_row_offset(range: &mut Range, message: String) -> Result<usize, Box<dyn s
             Ok(OffsetEnum::Offset(index)) => {
                 if index >= range.rows().count() {
                     println!("Invalid input");
+                    print!("{}", message);
                     continue;
                 }
                 break index;
@@ -164,6 +165,7 @@ fn get_row_offset(range: &mut Range, message: String) -> Result<usize, Box<dyn s
 fn get_column_offset(
     row: Vec<Vec<DataTypeWrap>>,
     message: String,
+    accept_skip: bool,
 ) -> Result<OffsetEnum, Box<dyn std::error::Error>> {
     let row: Vec<Vec<DataTypeWrap>> = (0..row[0].len())
         .map(|col| row.iter().map(|row| row[col].clone()).collect())
@@ -185,12 +187,18 @@ fn get_column_offset(
                 OffsetEnum::Offset(index) => {
                     if index >= row.len() {
                         println!("Invalid input");
+                        print!("{}", message);
                         continue;
                     }
                     break OffsetEnum::Offset(index);
                 }
                 OffsetEnum::Skip => {
-                    break OffsetEnum::Skip;
+                    if accept_skip {
+                        println!("Invalid input");
+                        print!("{}", message);
+                        break OffsetEnum::Skip;
+                    }
+                    continue;
                 }
             },
             Err(e) => {
@@ -205,7 +213,7 @@ fn get_column_offset(
 
 fn get_offset(
     range: &mut Range,
-) -> Result<(usize, HashMap<String, OffsetEnum>), Box<dyn std::error::Error>> {
+) -> Result<(usize, HashMap<String, OffsetEnum>, usize), Box<dyn std::error::Error>> {
     let row = get_row_offset(range, "Choose Row: ".to_string())?;
     let row_iter = range.rows();
     let row_iter = row_iter.skip(row);
@@ -219,13 +227,21 @@ fn get_offset(
                 .collect()
         })
         .collect();
-    let marked_columns = vec!["vendor", "description", "mapping", "label", "split"];
+    let marked_columns = vec!["vendor", "description", "mapping", "label"];
     let mut res = HashMap::new();
     for m in marked_columns.iter() {
-        let column = get_column_offset(row_list.clone(), format!("Choice Column {}: ", m))?;
+        let column = get_column_offset(row_list.clone(), format!("Choice Column {}: ", m), true)?;
         res.insert(m.to_string(), column);
     }
-    Ok((row, res))
+    let split = match get_column_offset(
+        row_list.clone(),
+        format!("Choice Column {}: ", "split"),
+        false,
+    )? {
+        OffsetEnum::Offset(v) => v,
+        _ => panic!("unexpected output from column offset"),
+    };
+    Ok((row, res, split))
 }
 
 fn get_column(
@@ -305,14 +321,14 @@ fn confirm_save() -> Result<YNSEnum, Box<dyn std::error::Error>> {
 }
 
 fn use_saved(file_name: &str, output_dir: &str) -> Result<bool, Box<dyn std::error::Error>> {
-    let out_file_name = format!("{}{}", output_dir, file_name);
+    let out_file_name = format!("{}/{}", output_dir, file_name);
     if std::path::Path::new(&out_file_name).exists() {
         println!("{} already exists", out_file_name);
         print!("Overwrite? (y/n/s): ");
         loop {
             match get_user_yns() {
-                Ok(YNSEnum::Yes) => return Ok(true),
-                Ok(YNSEnum::No) => return Ok(false),
+                Ok(YNSEnum::Yes) => return Ok(false),
+                Ok(YNSEnum::No) => return Ok(true),
                 Ok(YNSEnum::Skip) => return Ok(true),
                 _ => {
                     println!("Invalid input");
@@ -341,7 +357,8 @@ fn write_metadata(
     for (k, v) in columns.into_iter() {
         metadata.insert(k, v.to_string());
     }
-    let metadata = serde_json::to_string(&metadata)?;
+    let mut metadata = serde_json::to_string(&metadata)?;
+    metadata.push_str("\n");
     meta_file.write_all(metadata.as_bytes())?;
     Ok(())
 }
@@ -362,16 +379,11 @@ fn process_file(file_path: &std::path::Path, output_dir: &str, meta_file: &str) 
     let sheet = get_sheet(&mut workbook).unwrap();
     println!("Sheet: {}", sheet);
 
-    let (row_offset, mut column_offsets) =
+    let (row_offset, column_offsets, split) =
         get_offset(&mut workbook.worksheet_range(&sheet).unwrap()).unwrap();
     println!("Row offset: {}", row_offset);
     println!("Column offset: {:?}", column_offsets);
 
-    let split = column_offsets.remove("split").unwrap();
-    let split = match split {
-        OffsetEnum::Offset(x) => x,
-        _ => panic!("Invalid split column"),
-    };
     let mut new_workbook = write_file(
         &mut workbook.worksheet_range(&sheet).unwrap(),
         row_offset,
