@@ -1,5 +1,6 @@
 use clap::{Arg, Command};
 use office::{DataType, Excel, Range};
+use rust_xlsxwriter::*;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::fs;
@@ -60,13 +61,18 @@ fn print_range(range: &mut Range) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn get_user_num() -> Result<usize, Box<dyn std::error::Error>> {
+fn get_user_input() -> Result<String, Box<dyn std::error::Error>> {
     io::stdout().flush().expect("Failed to flush");
     let mut input_text = String::new();
     io::stdin()
         .read_line(&mut input_text)
         .expect("Failed to read input");
     io::stdout().flush().expect("Failed to flush");
+    Ok(input_text.trim().to_string())
+}
+
+fn get_user_num() -> Result<usize, Box<dyn std::error::Error>> {
+    let input_text = get_user_input()?;
     let number = input_text.trim().parse();
     match number {
         Ok(number) => Ok(number),
@@ -180,27 +186,108 @@ fn get_offset(
     Ok((row, res))
 }
 
+fn get_column(
+    range: &mut Range,
+    row_offset: usize,
+    column: usize,
+) -> Result<Vec<String>, Box<dyn std::error::Error>> {
+    let mut res = vec![];
+    for i in row_offset..range.get_size().0 {
+        res.push(
+            DataTypeWrap {
+                data_type: range.get_value(i, column).clone(),
+            }
+            .to_string(),
+        );
+    }
+    Ok(res)
+}
+
+fn write_column(
+    worksheet: &mut Worksheet,
+    data: Vec<String>,
+    column: usize,
+) -> Result<&mut Worksheet, Box<dyn std::error::Error>> {
+    Ok(worksheet.write_column(0, column as u16, data)?)
+}
+
+fn write_file(
+    range: &mut Range,
+    row_offset: usize,
+    split: usize,
+    columns: HashMap<String, usize>,
+) -> Result<Workbook, Box<dyn std::error::Error>> {
+    let mut workbook = Workbook::new();
+    let worksheet = workbook.add_worksheet().set_name("Data")?;
+    let mut iter = 0;
+    for (_, v) in columns.into_iter() {
+        let data = get_column(range, row_offset, v).unwrap();
+        let _ = write_column(worksheet, data, iter);
+        iter += 1;
+    }
+    for i in split..range.get_size().1 {
+        let data = get_column(range, row_offset, i).unwrap();
+        let _ = write_column(worksheet, data, iter);
+        iter += 1;
+    }
+    Ok(workbook)
+}
+
+fn confirm_save() -> Result<bool, Box<dyn std::error::Error>> {
+    print!("Save? (y/n): ");
+    let res = loop {
+        match get_user_input() {
+            Ok(s) => {
+                if s == "y" {
+                    break true;
+                } else if s == "n" {
+                    break false;
+                } else {
+                    println!("Invalid input");
+                    print!("Save? (y/n): ");
+                    continue;
+                }
+            }
+            Err(e) => {
+                println!("Invalid input: {}", e);
+                print!("Save? (y/n): ");
+                continue;
+            }
+        }
+    };
+    Ok(res)
+}
+
 fn process_file(file_path: &std::path::Path, output_dir: &str) -> io::Result<()> {
     let file_name = file_path
         .file_name()
         .unwrap()
         .to_str()
         .expect("Invalid filename");
-
+    println!("File: {}", file_name);
     let mut workbook = Excel::open(file_path).unwrap();
-
-    let contents = format!("{:?}", workbook.sheet_names());
     let sheet = get_sheet(&mut workbook).unwrap();
     println!("Sheet: {}", sheet);
-    let (row_offset, column_offset) =
+
+    let (row_offset, mut column_offsets) =
         get_offset(&mut workbook.worksheet_range(&sheet).unwrap()).unwrap();
     println!("Row offset: {}", row_offset);
-    println!("Column offset: {:?}", column_offset);
-    let new_contents = format!("{}\n{}", contents, sheet);
-    let output_file_path = format!("{}/{}", output_dir, file_name);
-    fs::write(output_file_path, new_contents)?;
+    println!("Column offset: {:?}", column_offsets);
 
-    Ok(())
+    let split = column_offsets.remove("split").unwrap();
+    let mut new_workbook = write_file(
+        &mut workbook.worksheet_range(&sheet).unwrap(),
+        row_offset,
+        split,
+        column_offsets,
+    )
+    .unwrap();
+    let output_file = format!("{}/{}", output_dir, file_name);
+    if confirm_save().unwrap() {
+        new_workbook.save(output_file).unwrap();
+        return Ok(());
+    }
+    Err(io::Error::new(io::ErrorKind::Other, "User cancelled"))
 }
 
 fn process_files(input_dir: &str, output_dir: &str) -> io::Result<()> {
@@ -209,7 +296,15 @@ fn process_files(input_dir: &str, output_dir: &str) -> io::Result<()> {
     for file in files {
         let file_path = file?.path();
         if file_path.is_file() {
-            process_file(&file_path, output_dir)?;
+            loop {
+                match process_file(&file_path, output_dir) {
+                    Ok(_) => break,
+                    Err(e) => {
+                        println!("Error: {}", e);
+                        continue;
+                    }
+                }
+            }
         }
     }
 
