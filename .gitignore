@@ -23,8 +23,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-/model/clean_data/data
-/model/clean_data/mock*
-/model/clean_data/target
+/model/process_data/data
+/model/process_data/clean_data/mock*
+/model/process_data/clean_data/target
 
 .ipynb_checkpoints
