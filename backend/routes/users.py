@@ -15,6 +15,7 @@ from backend.utils.jwt import generate_jwt, verify_jwt
 from backend.utils.db.filedb import delete_user_ingester
 from backend.types.errors import CustomError, PasswordError, JSONError
 from flask import jsonify
+from passlib.hash import pbkdf2_sha256
 
 
 def error_handler(e):
@@ -37,6 +38,7 @@ def user_put(username, password, db_client):
 
    Creates a user if it does not exist
    """
+   password = pbkdf2_sha256.hash(password)
    create_user(username, password, db_client)
    return jsonify({"status": True}), 200
 
@@ -61,6 +63,7 @@ def user_patch(jwt, password, db_client):
    Updates a password for a user
    """
    username = verify_jwt(jwt)
+   password = pbkdf2_sha256.hash(password)
    update_user(username, password, db_client)
    return jsonify({"status": True}), 200
 

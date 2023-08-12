@@ -8,8 +8,8 @@ Utility functions to interact with database.
     Update Password
 """
 import os
-import hmac
 from backend.types.errors import UsernameError, DBError
+from passlib.hash import pbkdf2_sha256
 
 
 def get_user(username, db_client):
@@ -150,5 +150,4 @@ def verify_user(username, password, db_client):
         db_response = get_user(username, db_client)
     except Exception as e:
         raise e
-
-    return hmac.compare_digest(password, db_response['password'])
+    return pbkdf2_sha256.verify(password, db_response['password'])
