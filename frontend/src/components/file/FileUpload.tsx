@@ -1,5 +1,5 @@
 import React, { useCallback, useState } from 'react';
-import { useWebSocket } from '../contexts/WebSocketContext';
+import { useWebSocket } from '../../contexts/WebSocketContext';
 
 const FileUpload: React.FC = () => {
     const socket = useWebSocket();

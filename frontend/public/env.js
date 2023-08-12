@@ -1,3 +1,1 @@
-window.env = {
-  "API": "ws://localhost:8000"
-};
+window.env = {};
