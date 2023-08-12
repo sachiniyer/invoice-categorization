@@ -14,7 +14,6 @@ Just a simple HTML front
 <p>Invoice Categorization API</p>
 
 ```
-### /users
 
 #### PUT
 Creates a user if it does not exist
