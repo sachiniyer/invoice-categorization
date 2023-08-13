@@ -12,7 +12,7 @@ interface WebSocketProviderProps {
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ children }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     useEffect(() => {
-        const newSocket = io(env.WS_API);
+        const newSocket = io(env.WAPI);
         setSocket(newSocket);
         return () => {
             newSocket.disconnect();

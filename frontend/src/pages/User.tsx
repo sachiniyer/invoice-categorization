@@ -1,20 +1,24 @@
 import { useUserContext } from "../contexts/UserContext";
 import LoginComponent from "../components/user/Login";
+import ProfileComponent from "../components/user/Profile";
 
 const User: React.FC = () => {
-    const { user } = useUserContext();
-    if (user) {
+    const { user, loaded } = useUserContext();
+    if (!loaded) {
         return (
             <div>
-                <h1>Welcome {user.username}</h1>
+                <h1>Loading...</h1>
             </div>
-        );
+        )
     }
     return (
         <div>
-            <LoginComponent />
+            {user === null || user.token === null ?
+                <LoginComponent /> :
+                <ProfileComponent />
+            }
         </div>
-    )
+    );
 }
 
 export default User;

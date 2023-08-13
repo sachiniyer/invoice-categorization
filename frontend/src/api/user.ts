@@ -1,4 +1,3 @@
-
 export const register_user = async (username: string, password: string, url: string) => {
     const response = await fetch(url, {
         method: "PUT",
@@ -14,7 +13,6 @@ export const register_user = async (username: string, password: string, url: str
 }
 
 export const login_user = async (username: string, password: string, url: string) => {
-    console.log(url)
     const response = await fetch(url, {
         method: "POST",
         headers: {
@@ -24,12 +22,24 @@ export const login_user = async (username: string, password: string, url: string
         body: JSON.stringify({ username, password })
     });
     if (response.status !== 200) {
-        console.log(response)
         throw new Error("api failed");
     }
     return await response.json();
 }
 
+export const verify_token = async (token: string, url: string) => {
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token })
+    });
+    if (response.status !== 200) {
+        throw new Error("api failed");
+    }
+    return await response.json();
+}
 
 export const update_password = async (username: string, password: string, token: string, url: string) => {
     const response = await fetch(url, {

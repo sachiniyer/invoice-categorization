@@ -3,7 +3,7 @@ import { useUserContext } from '../../contexts/UserContext';
 import { User } from '../../types/user';
 
 const LoginComponent: React.FC = () => {
-    const { login } = useUserContext();
+    const { login, register } = useUserContext();
     const [username, setUsername] = useState('');
     const [password, setPassword] = useState('');
 
@@ -13,11 +13,19 @@ const LoginComponent: React.FC = () => {
             password: password,
             token: null
         };
-        if (login(userData)) {
-            window.location.href = '/';
-        }
-        else {
+        if (!login(userData)) {
             alert('Login Failed');
+        }
+    };
+
+    const handleRegister = () => {
+        const userData: User = {
+            username: username,
+            password: password,
+            token: null
+        };
+        if (!register(userData)) {
+            alert('Register Failed');
         }
     };
 
@@ -36,6 +44,7 @@ const LoginComponent: React.FC = () => {
                 onChange={(e) => setPassword(e.target.value)}
             />
             <button onClick={handleLogin}>Login</button>
+            <button onClick={handleRegister}>Register</button>
         </div>
     );
 };

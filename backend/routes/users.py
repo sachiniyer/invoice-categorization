@@ -13,7 +13,8 @@ from backend.utils.db.userdb import (create_user, delete_user,
 from backend.utils.args import parse_args
 from backend.utils.jwt import generate_jwt, verify_jwt
 from backend.utils.db.filedb import delete_user_ingester
-from backend.types.errors import CustomError, PasswordError, JSONError
+from backend.types.errors import (CustomError, PasswordError,
+                                  JSONError, ArgError)
 from flask import jsonify
 from passlib.hash import pbkdf2_sha256
 
@@ -43,7 +44,7 @@ def user_put(username, password, db_client):
    return jsonify({"status": True}), 200
 
 
-def user_post(username, password, db_client):
+def user_post_login(username, password, db_client):
    """
    Post method.
 
@@ -54,6 +55,16 @@ def user_post(username, password, db_client):
       return jsonify({"status": True,
                       "jwt": jwt}), 200
    raise PasswordError(f'{password} is invalid')
+
+
+def user_post_token(token):
+   """
+   Post method.
+
+   Verifies jwt
+   """
+   verify_jwt(token)
+   return jsonify({"status": True}), 200
 
 
 def user_patch(jwt, password, db_client):
@@ -99,8 +110,14 @@ def user_handler(request, db_client, s3_client):
          return user_put(args['username'], args['password'], db_client)
 
       if request.method == 'POST':
-         args = parse_args(['username', 'password'], data)
-         return user_post(args['username'], args['password'], db_client)
+         try:
+            args = parse_args(['username', 'password'], data)
+            return user_post_login(args['username'],
+                                   args['password'],
+                                   db_client)
+         except ArgError:
+            args = parse_args(['token'], data)
+            return user_post_token(args['token'])
 
       if request.method == 'PATCH':
          args = parse_args(['token', 'password'], data)

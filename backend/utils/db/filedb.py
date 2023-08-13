@@ -391,5 +391,7 @@ def delete_user_ingester(username, db_client, s3_client):
     Mass delete all files for a user
     """
     list = list_ingester(username, db_client)
+    if len(list) == 0:
+        return
     for id, info in list[username].items():
         delete_ingester(username, id, db_client, s3_client)
