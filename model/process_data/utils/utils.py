@@ -209,6 +209,31 @@ class Utils:
         except Exception as e:
             print(f"An error occurred: {e}")
 
+    def get_full(self):
+        """
+        Get full.
+
+        Get all vendors from the db, which is the primary key 'name'
+        """
+        try:
+            paginator = self.dynamodb_client.get_paginator('scan')
+            response_iterator = paginator.paginate(
+                TableName=self.env_vars['AWS_TABLE_NAME']
+            )
+            items = []
+            response_count = 0
+            for response in response_iterator:
+                response_count += response['ScannedCount']
+                print(f"Scanned {response_count} items")
+                items.extend(response['Items'])
+            if items:
+                return {item['name']['S']: item['content']['S']
+                        for item in items}
+            else:
+                return None
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
     def sync_s3(self, local_path):
         """
         Sync s3.
