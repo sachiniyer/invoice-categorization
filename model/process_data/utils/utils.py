@@ -12,6 +12,12 @@ from dotenv import dotenv_values
 import requests
 import boto3
 import time
+import nltk
+from nltk.tokenize import word_tokenize
+from nltk.stem import SnowballStemmer
+from nltk.corpus import stopwords
+from geonamescache import GeonamesCache
+import re
 
 
 class Utils:
@@ -40,6 +46,94 @@ class Utils:
         self.search_engine_id = self.env_vars['SEARCH_ENGINE_ID']
         self.max_retries = 10
         self.default_backoff = 3
+        nltk.download('punkt')
+        nltk.download('stopwords')
+        self.stemmer = SnowballStemmer("english")
+        self.stop_words = set(stopwords.words("english"))
+
+        custom_stopwords = {
+            "llc", "inc", "corp", "company", "corporation", "group",
+            "limited", "technologies", "solutions", "systems",
+            "enterprises", "international", "global", "services",
+            "industries", "manufacturing", "partners", "holdings"}
+
+        us_states = ["alabama", "alaska", "arizona", "arkansas", "california",
+                     "colorado", "connecticut", "delaware", "florida",
+                     "georgia", "hawaii", "idaho", "illinois", "indiana",
+                     "iowa", "kansas", "kentucky", "louisiana", "maine",
+                     "maryland", "massachusetts", "michigan", "minnesota",
+                     "mississippi", "missouri", "montana", "nebraska",
+                     "nevada", "new hampshire", "new jersey", "new mexico",
+                     "new york", "north carolina", "north dakota", "ohio",
+                     "oklahoma", "oregon", "pennsylvania", "rhode island",
+                     "south carolina", "south dakota", "tennessee", "texas",
+                     "utah", "vermont", "virginia", "washington",
+                     "west virginia", "wisconsin", "wyoming"]
+
+        us_states_abbreviations = ["al", "ak", "az", "ar", "ca", "co", "ct",
+                                   "de", "fl", "ga", "hi", "id", "il", "in",
+                                   "ia", "ks", "ky", "la", "me", "md", "ma",
+                                   "mi", "mn", "ms", "mo", "mt", "ne", "nv",
+                                   "nh", "nj", "nm", "ny", "nc", "nd", "oh",
+                                   "ok", "or", "pa", "ri", "sc", "sd", "tn",
+                                   "tx", "ut", "vt", "va", "wa", "wv", "wi",
+                                   "wy"]
+
+        self.stop_words.update(custom_stopwords)
+        self.stop_words.update(us_states)
+        self.stop_words.update(us_states_abbreviations)
+
+        gc = GeonamesCache()
+        self.place_names = set()
+        for self.place_data in gc.get_cities().values():
+            self.place_names.add(self.place_data["name"].lower())
+
+    def remove_city(self, word):
+        """
+        Remove City.
+
+        Removes cities from a string.
+        """
+        tokens = word.split(" ")
+        filtered_tokens = []
+        i = 0
+        while i < len(tokens):
+            if i + 2 < len(tokens):
+                three_word_sequence = " ".join(tokens[i:i + 3])
+                if three_word_sequence in self.place_names:
+                    i += 3
+                    continue
+
+            if i + 1 < len(tokens):
+                two_word_sequence = " ".join(tokens[i:i + 2])
+                if two_word_sequence in self.place_names:
+                    i += 2
+                    continue
+
+            if tokens[i] in self.place_names:
+                i += 1
+                continue
+
+            filtered_tokens.append(tokens[i])
+            i += 1
+        return " ".join(filtered_tokens)
+
+    def token_and_stem(self, item):
+        """
+        Token and Stem.
+
+        Cleans up a vendor and returns it.
+        """
+        input_string = item.lower()
+        no_long_numbers = re.sub(r'\b\d{3,}\b', '', input_string)
+        alphanum = re.sub(r'[^a-zA-Z0-9]', ' ', no_long_numbers)
+        no_places = self.remove_city(alphanum)
+        tokens = word_tokenize(no_places)
+        filtered_tokens = [token for token in tokens
+                           if token not in self.stop_words]
+        stemmed_tokens = [self.stemmer.stem(token)
+                          for token in filtered_tokens]
+        return ' '.join(stemmed_tokens)
 
     def to_pandas(inf, outf):
         """
