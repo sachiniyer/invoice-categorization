@@ -133,7 +133,10 @@ class Utils:
                            if token not in self.stop_words]
         stemmed_tokens = [self.stemmer.stem(token)
                           for token in filtered_tokens]
-        return ' '.join(stemmed_tokens)
+        res = ' '.join(stemmed_tokens)
+        if res.strip() == '':
+            return item
+        return res.lower()
 
     def to_pandas(inf, outf):
         """
@@ -249,21 +252,72 @@ class Utils:
         except Exception as e:
             print(f"An error occurred: {e}")
 
-    def put_table(self, term, content):
+    def put_table(self, term, vendor, content):
         """
         Put table.
 
         Puts a table into the db.
+        name: str
+        vendors: arr[str]
+        content: str
         """
         try:
             item = {
                 'name': {'S': term},
+                'vendors': {'SS': [vendor]},
                 'content': {'S': content},
             }
             self.dynamodb_client.put_item(
                 TableName=self.env_vars['AWS_TABLE_NAME'],
                 Item=item
             )
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    def delete_table(self, term):
+        """
+        Delete table.
+
+        Deletes an item from the table.
+        """
+        try:
+            key = {
+                'name': {'S': term}
+            }
+            self.dynamodb_client.delete_item(
+                TableName=self.env_vars['AWS_TABLE_NAME'],
+                Key=key
+            )
+        except Exception as e:
+            print(f"An error occurred: {e}")
+
+    def append_table(self, term, vendor):
+        """
+        Append table.
+
+        Appends a vendor to an existing item in the table.
+        """
+        try:
+            key = {
+                'name': {'S': term}
+            }
+            response = self.dynamodb_client.get_item(
+                TableName=self.env_vars['AWS_TABLE_NAME'],
+                Key=key
+            )
+            item = response.get('Item')
+            if item:
+                vendors = item["vendors"]["SS"]
+                if vendor not in vendors:
+                    vendors.append(vendor)
+                    self.dynamodb_client.update_item(
+                        TableName=self.env_vars['AWS_TABLE_NAME'],
+                        Key=key,
+                        UpdateExpression="SET vendors = :v",
+                        ExpressionAttributeValues={
+                            ':v': {'SS': vendors}
+                        }
+                    )
         except Exception as e:
             print(f"An error occurred: {e}")
 
@@ -276,11 +330,13 @@ class Utils:
         if not vendor:
             return None
         vendor = str(vendor)
-        table_res = self.get_table(vendor)
+        clean_vendor = self.token_and_stem(vendor)
+        table_res = self.get_table(clean_vendor)
         if table_res:
+            self.append_table(clean_vendor, vendor)
             return table_res
         search_res = self.get_search(vendor)
-        self.put_table(vendor, search_res)
+        self.put_table(clean_vendor, vendor, search_res)
         return search_res
 
     def get_random(self, num=10):
@@ -361,6 +417,28 @@ class Utils:
         overall_bar.close()
         df.to_csv(outf, index=False)
         self.sync_s3(outf)
+
+    def migrate_db(self, vendors):
+        """
+        Migrate db.
+
+        Take each one of the vendors dictionary, clean it and put the new items
+        into the db
+        then delete all of the old items.
+        """
+        for vendor, content in tqdm(vendors.items(),
+                                    desc="Migrating",
+                                    position=0):
+
+            clean_vendor = self.token_and_stem(vendor)
+            old_item = self.get_table(vendor)
+            if old_item:
+                self.delete_table(vendor)
+            new_item = self.get_table(clean_vendor)
+            if new_item:
+                self.append_table(clean_vendor, vendor)
+            else:
+                self.put_table(clean_vendor, vendor, content)
 
     def iterate(in_dir, out_dir, function):
         """
