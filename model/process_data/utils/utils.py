@@ -215,6 +215,9 @@ class Utils:
             time.sleep(1)
             return self.get_search(term)
 
+        if not data:
+            return self.get_search(term)
+
         res = ""
         if 'searchInformation' in data:
             if data['searchInformation']['totalResults'] == "0":
