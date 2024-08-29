@@ -1,4 +1,5 @@
 import FileUpload from '../components/file/FileUpload';
+import Files from '../components/file/Files'
 import { useUserContext } from "../contexts/UserContext";
 
 const Home: React.FC = () => {
@@ -14,7 +15,14 @@ const Home: React.FC = () => {
     if (user === null || user.token === null) {
         return (
             <div>
-                <h1>{"Please login to continue"}</h1>
+                <h1 className="text-center
+                               text-4xl">
+                    {"Please "}
+                    <a href="/user" className="text-blue-500">
+                        {"login"}
+                    </a>
+                    {" to continue"}
+                </h1>
             </div>
         )
     }
@@ -22,6 +30,7 @@ const Home: React.FC = () => {
     return (
         <div>
             <FileUpload />
+            <Files />
         </div>
     );
 }
