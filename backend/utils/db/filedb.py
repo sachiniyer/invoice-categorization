@@ -4,40 +4,37 @@ File db.
 Interacts with the dynamodb database and s3
 bucket to upload and download files.
 """
+
 import os
 from flask import jsonify
 from backend.types.errors import DBError, FileIDError, UsernameError, JSONError
 from backend.utils.model.model import model_handler
+from backend.utils.db.userdb import get_user
 
 ongoing_uploads = {}
 
 
-def get_item_db(fileid, db_client):
+def get_item_db(fileid, username, db_client):
     """
     Get owner function.
 
     Gets the owner for a given fileid
     """
-    key = {
-        'fileid': {
-            'S': fileid
-        }
-    }
+    key = {"fileid": {"S": fileid}, "username": {"S": username}}
 
     try:
         response = db_client.get_item(
-            TableName=os.environ.get('AWS_FILE_TABLE_NAME'),
-            Key=key
+            TableName=os.environ.get("AWS_FILE_TABLE_NAME"), Key=key
         )
     except Exception as e:
         raise DBError(str(e))
 
-    item = response.get('Item')
+    item = response.get("Item")
     if item:
         return {
-            'fileid': fileid,
-            'username': item['username']['S'],
-            'filename': item['filename']['S']
+            "fileid": fileid,
+            "username": item["username"]["S"],
+            "filename": item["filename"]["S"],
         }
     else:
         raise FileIDError(fileid)
@@ -45,14 +42,19 @@ def get_item_db(fileid, db_client):
 
 def get_item_user(fileid, username, db_client):
     """
-    Get item user function.
+    Verify that a file exists in the db.
 
-    Verify user or throw UsernameError
+    Verifies that a file exists in the db for a given user
     """
-    real_username = get_item_db('username')
-    if real_username['username'] is not username:
+    try:
+        item = get_item_db(fileid, username, db_client)
+    except Exception as e:
+        raise e
+
+    if item["username"] != username:
         raise UsernameError(username)
-    return real_username
+
+    return item
 
 
 def create_item_db(fileid, username, filename, db_client):
@@ -62,24 +64,15 @@ def create_item_db(fileid, username, filename, db_client):
     Creates an item given a fileid and username
     """
     item = {
-        'fileid': {
-            'S': fileid
-        },
-        'username': {
-            'S': username
-        },
-        'filename': {
-            'S': filename
-        },
-        'processed': {
-            'BOOL': False
-        }
+        "fileid": {"S": fileid},
+        "username": {"S": username},
+        "filename": {"S": filename},
+        "processed": {"BOOL": False},
     }
 
     try:
         item = db_client.put_item(
-            TableName=os.environ.get('AWS_FILE_TABLE_NAME'),
-            Item=item
+            TableName=os.environ.get("AWS_FILE_TABLE_NAME"), Item=item
         )
         return item
     except Exception as e:
@@ -92,17 +85,10 @@ def delete_item_db(fileid, db_client):
 
     Deletes an item from dynamodb
     """
-    key = {
-        'fileid': {
-            'S': fileid
-        }
-    }
+    key = {"fileid": {"S": fileid}}
 
     try:
-        db_client.delete_item(
-            TableName=os.environ.get('AWS_FILE_TABLE_NAME'),
-            Key=key
-        )
+        db_client.delete_item(TableName=os.environ.get("AWS_FILE_TABLE_NAME"), Key=key)
     except Exception as e:
         raise DBError(str(e))
 
@@ -118,23 +104,15 @@ def mark_item_db(fileid, username, db_client):
     except Exception as e:
         raise e
 
-    key = {
-        'fileid': {
-            'S': fileid
-        }
-    }
+    key = {"fileid": {"S": fileid}}
 
     try:
         response = db_client.update_item(
-            TableName=os.environ.get('AWS_FILE_TABLE_NAME'),
+            TableName=os.environ.get("AWS_FILE_TABLE_NAME"),
             Key=key,
-            UpdateExpression='SET processed = :processed',
-            ExpressionAttributeValues={
-                ':processed': {
-                    'BOOL': True
-                }
-            },
-            ReturnValues='ALL_NEW'
+            UpdateExpression="SET processed = :processed",
+            ExpressionAttributeValues={":processed": {"BOOL": True}},
+            ReturnValues="ALL_NEW",
         )
         return response
     except Exception as e:
@@ -148,33 +126,23 @@ def delete_item_s3(fileid, bucket, s3_client):
     Deletes an item from s3 given bucket and filename
     """
     try:
-        s3_client.delete_object(
-            Bucket=bucket,
-            Key=fileid
-        )
+        s3_client.delete_object(Bucket=bucket, Key=fileid)
     except Exception as e:
         raise DBError(str(e))
 
 
-def get_chunk_uploader(fileid, bucket, total_chunks, s3_client):
+def get_chunk_uploader(fileid, total_chunks):
     """
     Get chunk uploader function.
 
     Get multipart uploader from dictionary or creates one.
     """
     if fileid not in ongoing_uploads:
-        try:
-            response = s3_client.create_multipart_uploader(
-                Bucket=bucket,
-                Key=fileid
-            )
-
-            ongoing_uploads[fileid] = {
-                'uploader': response['UploadId'],
-                'set': {}
-            }
-        except Exception as e:
-            raise DBError(str(e))
+        ongoing_uploads[fileid] = {
+            "set": {},
+            "finished": [],
+            "next": 0,
+        }
     return ongoing_uploads[fileid]
 
 
@@ -185,51 +153,67 @@ def send_chunk(socketio, chunk_data, chunk_number, num_chunks):
     Sends a chunk of data back to the client
     """
     try:
-        json = jsonify('status', True,
-                       'response', 200,
-                       'finished', False,
-                       'chunk', chunk_data,
-                       'chunk_number', chunk_number,
-                       'total_chunks', num_chunks)
-        socketio.emit('get', json)
+        json = jsonify(
+            "status",
+            True,
+            "response",
+            200,
+            "finished",
+            False,
+            "chunk",
+            chunk_data,
+            "chunk_number",
+            chunk_number,
+            "total_chunks",
+            num_chunks,
+        )
+        socketio.emit("get", json)
     except Exception as e:
         raise JSONError(str(e))
 
 
-def upload_chunk(fileid, chunk, chunk_number,
-                 total_chunks, bucket, s3_client):
+def elegible_chunks(uploader):
+    """
+    Elegible chunks.
+
+    Returns a list of chunks that are ready to be uploaded
+    """
+    res = []
+    while uploader["next"] in uploader["set"]:
+        res.append(
+            {
+                "chunk_number": uploader["next"],
+                "chunk": uploader["set"][uploader["next"]],
+            }
+        )
+        uploader["set"].pop(uploader["next"])
+        uploader["next"] += 1
+    return res
+
+
+def upload_chunk(fileid, chunk, chunk_number, total_chunks, bucket, s3_client):
     """
     Upload Chunk function.
 
     Takes a chunk, figures out if there is an uploader (creates if otherwise)
     and uploads chunk
     """
-    uploader = get_chunk_uploader(fileid, bucket, s3_client)
-    try:
-        response = s3_client.upload_part(
-            Bucket=bucket,
-            Key=fileid,
-            PartNumber=chunk_number,
-            UploadId=uploader['uploader'],
-            Body=chunk
-        )
-        uploader['set'].append({
-            'PartNumber': chunk_number,
-            'ETag': response['ETag']
-        })
-    except Exception as e:
-        raise DBError(str(e))
+    if not os.path.exists(os.environ.get("TEMP_FILE_LOCATION")):
+        os.makedirs(os.environ.get("TEMP_FILE_LOCATION"))
+    path = os.path.join(os.environ.get("TEMP_FILE_LOCATION"), fileid)
+    if not os.path.exists(path):
+        with open(path, "wb") as f:
+            f.write(b"")
 
-    if len(uploader['set']) == total_chunks:
+    uploader = get_chunk_uploader(fileid, total_chunks)
+    uploader["set"][chunk_number] = chunk
+    for i in elegible_chunks(uploader):
+        with open(path, "ab") as f:
+            f.write(i["chunk"])
+        uploader["finished"].append(i["chunk_number"])
+    if len(uploader["finished"]) == total_chunks:
         try:
-            s3_client.complete_multipart_upload(
-                Bucket=bucket,
-                Key=fileid,
-                UploadId=uploader['uploader'],
-                MultipartUpload={
-                    'Parts': uploader['set']
-                }
-            )
+            s3_client.upload_file(path, bucket, fileid)
         except Exception as e:
             raise DBError(str(e))
         return -1
@@ -243,12 +227,8 @@ def download_file(fileid, s3_client):
     Downloads file to run model on.
     """
     try:
-        path = os.path.join(os.enivorn.get('MODEL_DOWNLOAD_PATH'), fileid)
-        s3_client.download_file(
-            os.environ.get('AWS_S3_UPLOAD_NAME'),
-            fileid,
-            path
-        )
+        path = os.path.join(os.enivorn.get("MODEL_DOWNLOAD_PATH"), fileid)
+        s3_client.download_file(os.environ.get("AWS_S3_UPLOAD_NAME"), fileid, path)
     except Exception as e:
         raise DBError(str(e))
 
@@ -260,18 +240,15 @@ def upload_file(fileid, s3_client):
     Uploads file that has been modified
     """
     try:
-        path = os.path.join(os.enivorn.get('MODEL_UPLOAD_PATH'), fileid)
-        s3_client.upload_file(
-            path,
-            os.environ.get('AWS_S3_UPLOAD_NAME'),
-            fileid
-        )
+        path = os.path.join(os.enivorn.get("MODEL_UPLOAD_PATH"), fileid)
+        s3_client.upload_file(path, os.environ.get("AWS_S3_UPLOAD_NAME"), fileid)
     except Exception as e:
         raise DBError(str(e))
 
 
-def file_ingester(username, fileid, filename, chunk, chunk_number,
-                  total_chunks, db_client, s3_client):
+def file_ingester(
+    username, fileid, filename, chunk, chunk_number, total_chunks, db_client, s3_client
+):
     """
     File db handler.
 
@@ -283,10 +260,15 @@ def file_ingester(username, fileid, filename, chunk, chunk_number,
         if not isinstance(e, FileIDError):
             raise e
         else:
-            create_item_db(fileid, filename, username, db_client)
-    res = upload_chunk(fileid, chunk, chunk_number,
-                       total_chunks, os.environ.get('AWS_S3_UPLOAD_NAME'),
-                       s3_client)
+            create_item_db(fileid, username, filename, db_client)
+    res = upload_chunk(
+        fileid,
+        chunk,
+        chunk_number,
+        total_chunks,
+        os.environ.get("AWS_S3_UPLOAD_NAME"),
+        s3_client,
+    )
     return res
 
 
@@ -298,22 +280,16 @@ def list_ingester(username, db_client):
     """
     try:
         response = db_client.scan(
-            TableName=os.environ.get('AWS_FILE_TABLE_NAME'),
-            FilterExpression='#sk = :sk_value',
-            ExpressionAttributeNames={
-                '#sk': 'username'
-            },
-            ExpressionAttributeValues={
-                ':sk_value': {
-                    'S': username
-                }
-            }
+            TableName=os.environ.get("AWS_FILE_TABLE_NAME"),
+            FilterExpression="#sk = :sk_value",
+            ExpressionAttributeNames={"#sk": "username"},
+            ExpressionAttributeValues={":sk_value": {"S": username}},
         )
         res = {}
-        for i in response['Items']:
-            res[i['fileid']['S']] = {
-                'filename': i['filename']['S'],
-                'processed': i['processed']['BOOL']
+        for i in response["Items"]:
+            res[i["fileid"]["S"]] = {
+                "filename": i["filename"]["S"],
+                "processed": i["processed"]["BOOL"],
             }
         return res
     except Exception as e:
@@ -342,7 +318,7 @@ def get_ingester(username, fileid, socketio, db_client, s3_client):
     get_item_user(fileid, username, db_client)
 
     try:
-        obj = s3_client.Object(os.environ.get('AWS_S3_PROCESSED_NAME'), fileid)
+        obj = s3_client.Object(os.environ.get("AWS_S3_PROCESSED_NAME"), fileid)
     except Exception as e:
         raise DBError(str(e))
 
@@ -353,18 +329,22 @@ def get_ingester(username, fileid, socketio, db_client, s3_client):
 
     try:
         object_size = obj.content_length
-        chunk_size = os.enviorn.get('CHUNK_SIZE')
+        chunk_size = os.enviorn.get("CHUNK_SIZE")
         num_chunks = (object_size // chunk_size) + 1
 
-        byte_range = 'bytes=0-' + str(chunk_size - 1)
+        byte_range = "bytes=0-" + str(chunk_size - 1)
 
         for chunk_number in range(num_chunks):
             if chunk_number > 0:
-                byte_range = (f'bytes={str(chunk_number * chunk_size)}-'
-                              f'{str(((chunk_number + 1) * chunk_size) - 1)}')
+                byte_range = (
+                    f"bytes={str(chunk_number * chunk_size)}-"
+                    f"{str(((chunk_number + 1) * chunk_size) - 1)}"
+                )
                 response = obj.get(Range=byte_range)
-                chunk_data = response['Body'].read()
-                socketio.emit('get',)
+                chunk_data = response["Body"].read()
+                socketio.emit(
+                    "get",
+                )
                 send_chunk(socketio, chunk_data, chunk_number, num_chunks)
     except Exception as e:
         if isinstance(e, JSONError):
@@ -380,8 +360,8 @@ def delete_ingester(username, fileid, db_client, s3_client):
     """
     get_item_user(fileid, username, db_client)
     delete_item_db(fileid, db_client)
-    delete_item_s3(fileid, os.enviorn.get('AWS_S3_UPLOAD_NAME'), s3_client)
-    delete_item_s3(fileid, os.enviorn.get('AWS_S3_PROCESSED_NAME'), s3_client)
+    delete_item_s3(fileid, os.enviorn.get("AWS_S3_UPLOAD_NAME"), s3_client)
+    delete_item_s3(fileid, os.enviorn.get("AWS_S3_PROCESSED_NAME"), s3_client)
 
 
 def delete_user_ingester(username, db_client, s3_client):

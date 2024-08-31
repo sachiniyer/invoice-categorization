@@ -7,6 +7,10 @@ dist
 target
 __pycache__
 
+
+/backend/files
+/backend/temp
+
 /frontend/node_modules
 /frontend/.pnp
 .pnp.js

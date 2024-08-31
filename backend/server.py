@@ -13,31 +13,37 @@ from dotenv import load_dotenv
 import boto3
 
 from backend.routes.users import user_handler
-from backend.routes.files import (upload_handler, list_handler,
-                                  delete_handler, get_handler, process_handler)
+from backend.routes.files import (
+    upload_handler,
+    list_handler,
+    delete_handler,
+    get_handler,
+    process_handler,
+)
 
 load_dotenv()
 
 
 app = Flask(__name__)
-Cors = CORS(app,
-            resources={r"/*": {"origins": os.environ.get("ORIGIN",
-                                                         "localhost:3000")}})
+Cors = CORS(
+    app, resources={r"/*": {"origins": os.environ.get("ORIGIN", "localhost:3000")}}
+)
 
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default_secret_key')
-socketio = SocketIO(app,
-                    cors_allowed_origins=os.environ.get("ORIGIN",
-                                                        "localhost:3000"))
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "default_secret_key")
+socketio = SocketIO(
+    app, cors_allowed_origins=os.environ.get("ORIGIN", "localhost:3000")
+)
 session = boto3.Session(
-    aws_access_key_id=os.environ.get('AWS_API_KEY'),
-    aws_secret_access_key=os.environ.get('AWS_API_SECRET'),
-    region_name=os.environ.get('AWS_REGION'))
+    aws_access_key_id=os.environ.get("AWS_API_KEY"),
+    aws_secret_access_key=os.environ.get("AWS_API_SECRET"),
+    region_name=os.environ.get("AWS_REGION"),
+)
 
-db_client = session.client('dynamodb')
-s3_client = session.client('s3')
+db_client = session.client("dynamodb")
+s3_client = session.client("s3")
 
 
-@app.route('/', methods=['GET', 'PUT', 'POST', 'PATCH', 'DELETE'])
+@app.route("/", methods=["GET", "PUT", "POST", "PATCH", "DELETE"])
 def root():
     """
     Root route.
@@ -47,17 +53,17 @@ def root():
     return user_handler(request, db_client, s3_client)
 
 
-@socketio.on('message')
+@socketio.on("message")
 def handle_message(message):
     """
     Message route.
 
     Just echo's back message for status.
     """
-    socketio.emit('message', message)
+    socketio.emit("message", message)
 
 
-@socketio.on('upload')
+@socketio.on("upload")
 def upload_file(message):
     """
     Upload route.
@@ -67,7 +73,7 @@ def upload_file(message):
     upload_handler(message, socketio, db_client, s3_client)
 
 
-@socketio.on('process')
+@socketio.on("process")
 def process_file(message):
     """
     Process route.
@@ -77,7 +83,7 @@ def process_file(message):
     process_handler(message, socketio, db_client, s3_client)
 
 
-@socketio.on('list')
+@socketio.on("list")
 def list_file(message):
     """
     List route.
@@ -87,7 +93,7 @@ def list_file(message):
     list_handler(message, socketio, db_client)
 
 
-@socketio.on('get')
+@socketio.on("get")
 def get_file(message):
     """
     Get route.
@@ -97,7 +103,7 @@ def get_file(message):
     get_handler(message, socketio, db_client, s3_client)
 
 
-@socketio.on('delete')
+@socketio.on("delete")
 def delete_file(message):
     """
     Delete route.
@@ -107,6 +113,6 @@ def delete_file(message):
     delete_handler(message, socketio, db_client, s3_client)
 
 
-if __name__ == '__main__':
-    debug = os.environ.get('DEBUG', 'False').lower() == 'true'
+if __name__ == "__main__":
+    debug = os.environ.get("DEBUG", "False").lower() == "true"
     socketio.run(app, debug=debug)
