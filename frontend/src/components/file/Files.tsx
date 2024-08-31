@@ -16,7 +16,7 @@ const Files: React.FC = () => {
 
   socket?.on("list", (response: any) => {
     let json = JSON.parse(response);
-    let files = json["files"] == undefined ? [] : json["files"];
+    let files = json["files"] === undefined ? [] : json["files"];
     let res = <></>;
     for (let i in files) {
       res = (
