@@ -26,7 +26,7 @@ const FileUpload: React.FC = () => {
         return;
       }
 
-      const totalChunks = Math.ceil(file.size / CHUNK_SIZE) - 1;
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
       let currentChunk = 0;
 
       const fileid = randomString(10);

@@ -12,8 +12,6 @@ import json
 import secrets
 import string
 
-from flask import jsonify
-
 from backend.types.errors import CustomError
 from backend.utils.args import parse_args, parse_json
 from backend.utils.db.filedb import (
@@ -45,8 +43,8 @@ def error_handler(e):
     """
     if isinstance(e, CustomError):
         message, response = e.response()
-        return jsonify({"status": False, "error": message, "response": response})
-    return jsonify({"status": False, "error": "unexpected error", "response": 500})
+        return json.dumps({"status": False, "error": message, "response": response})
+    return json.dumps({"status": False, "error": "unexpected error", "response": 500})
 
 
 def upload_handler(message, socketio, db_client, s3_client):
@@ -96,7 +94,7 @@ def upload_handler(message, socketio, db_client, s3_client):
         socketio.emit("upload", error_handler(e))
 
 
-def list_handler(message, socketio, db_client):
+def list_handler(message, socketio, db_client, bedrock_client):
     """
     List function.
 
@@ -107,7 +105,7 @@ def list_handler(message, socketio, db_client):
 
         username = verify_jwt(args["token"])
 
-        res = list_ingester(username, db_client)
+        res = list_ingester(username, db_client, bedrock_client)
 
         socketio.emit(
             "list", json.dumps({"status": True, "files": res, "response": 200})
@@ -116,7 +114,7 @@ def list_handler(message, socketio, db_client):
         socketio.emit("list", json.dumps(error_handler(e)))
 
 
-def process_handler(message, socketio, db_client, s3_client):
+def process_handler(message, socketio, db_client, s3_client, bedrock_client):
     """
     Process function.
 
@@ -128,23 +126,11 @@ def process_handler(message, socketio, db_client, s3_client):
 
         username = verify_jwt(args["token"])
 
-        socketio.emit(
-            "process",
-            jsonify(
-                {
-                    "status": True,
-                    "finished": False,
-                    "fileid": args["fileid"],
-                    "response": 200,
-                }
-            ),
-        )
-
-        process_ingester(username, args["fileid"], db_client, s3_client)
+        process_ingester(username, args["fileid"], db_client, s3_client, bedrock_client)
 
         socketio.emit(
             "process",
-            jsonify(
+            json.dumps(
                 {
                     "status": True,
                     "finished": True,
@@ -171,7 +157,7 @@ def get_handler(message, socketio, db_client, s3_client):
         username = verify_jwt(args["token"])
         get_ingester(username, args["fileid"], socketio, db_client, s3_client)
         socketio.emit(
-            "get", jsonify({"status": True, "response": 200, "finished": True})
+            "get", json.dumps({"status": True, "response": 200, "finished": True})
         )
 
     except Exception as e:
@@ -190,6 +176,6 @@ def delete_handler(message, socketio, db_client, s3_client):
 
         username = verify_jwt(args["token"])
         delete_ingester(username, args["fileid"], db_client, s3_client)
-        socketio.emit("delete", jsonify({"status": True, "response": 200}))
+        socketio.emit("delete", json.dumps({"status": True, "response": 200}))
     except Exception as e:
         socketio.emit("delete", error_handler(e))

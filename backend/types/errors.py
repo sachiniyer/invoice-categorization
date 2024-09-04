@@ -27,7 +27,7 @@ class CustomError(ValueError):
 
         Gives back a human response for results
         """
-        return 'Server Errro', 500
+        return "Server Errro", 500
 
 
 class UsernameError(CustomError):
@@ -52,7 +52,7 @@ class UsernameError(CustomError):
 
         Gives back a human response for results
         """
-        return 'Username invalid', 400
+        return "Username invalid", 400
 
 
 class PasswordError(CustomError):
@@ -77,7 +77,7 @@ class PasswordError(CustomError):
 
         Gives back a human response for results
         """
-        return 'Password invalid', 400
+        return "Password invalid", 400
 
 
 class FileIDError(CustomError):
@@ -102,7 +102,7 @@ class FileIDError(CustomError):
 
         Gives back a human response for results
         """
-        return 'Fileid invalid', 400
+        return "Fileid invalid", 400
 
 
 class JWTError(CustomError):
@@ -129,8 +129,8 @@ class JWTError(CustomError):
         Gives back a human response for results
         """
         if self.timeout:
-            return 'JWT timed out', 400
-        return 'JWT processing error', 500
+            return "JWT timed out", 400
+        return "JWT processing error", 500
 
 
 class DBError(CustomError):
@@ -155,7 +155,7 @@ class DBError(CustomError):
 
         Gives back a human response for results
         """
-        return 'error with db', 500
+        return "error with db", 500
 
 
 class JSONError(CustomError):
@@ -182,8 +182,8 @@ class JSONError(CustomError):
         Gives back a human response for results
         """
         if self.invalid:
-            return 'json is invalid', 400
-        return 'error parsing json', 500
+            return "json is invalid", 400
+        return "error parsing json", 500
 
 
 class ArgError(CustomError):
@@ -210,5 +210,30 @@ class ArgError(CustomError):
         """
         res = ""
         for k, v in self.args:
-            res += f'{k} is present: {v is None}, '
+            res += f"{k} is present: {v is None}, "
         return res
+
+
+class BedrockError(CustomError):
+    """
+    Bedrock Error.
+
+    Issue with bedrock
+    """
+
+    def __init__(self, message):
+        """
+        Init function.
+
+        Overrides the method field.
+        """
+        self.message = message
+        super().__init__(message)
+
+    def response(self):
+        """
+        Response method.
+
+        Gives back a human response for results
+        """
+        return "error with bedrock", 500

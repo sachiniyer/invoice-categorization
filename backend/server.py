@@ -41,6 +41,7 @@ session = boto3.Session(
 
 db_client = session.client("dynamodb")
 s3_client = session.client("s3")
+bedrock_client = session.client("bedrock")
 
 
 @app.route("/", methods=["GET", "PUT", "POST", "PATCH", "DELETE"])
@@ -80,7 +81,7 @@ def process_file(message):
 
     Sends a file for processsing.
     """
-    process_handler(message, socketio, db_client, s3_client)
+    process_handler(message, socketio, db_client, s3_client, bedrock_client)
 
 
 @socketio.on("list")
@@ -90,7 +91,7 @@ def list_file(message):
 
     Lists all the files available to the user.
     """
-    list_handler(message, socketio, db_client)
+    list_handler(message, socketio, db_client, bedrock_client)
 
 
 @socketio.on("get")
