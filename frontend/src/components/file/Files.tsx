@@ -16,6 +16,10 @@ const Files: React.FC = () => {
 
   const processFile = useCallback(
     (fileid: string) => {
+      if (process.env.REACT_APP_DISABLE?.toLowerCase() === "true") {
+        alert("Process is disabled for demo, run it locally");
+        return;
+      }
       if (socket === null) {
         return;
       }
@@ -44,6 +48,11 @@ const Files: React.FC = () => {
 
   const deleteFile = useCallback(
     (fileid: string) => {
+      if (process.env.REACT_APP_DISABLE?.toLowerCase() === "true") {
+        alert("Delete is disabled for demo, run it locally");
+        return;
+      }
+
       if (socket === null) {
         return;
       }

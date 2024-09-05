@@ -42,6 +42,7 @@ session = boto3.Session(
 db_client = session.client("dynamodb")
 s3_client = session.client("s3")
 bedrock_client = session.client("bedrock")
+disable = os.environ.get("DISABLE", "False").lower() == "true"
 
 
 @app.route("/", methods=["GET", "PUT", "POST", "PATCH", "DELETE"])
@@ -51,7 +52,7 @@ def root():
 
     Handles all user management
     """
-    return user_handler(request, db_client, s3_client)
+    return user_handler(request, disable, db_client, s3_client)
 
 
 @socketio.on("message")
@@ -71,6 +72,8 @@ def upload_file(message):
 
     Used for uploading a chunk of a file.
     """
+    if disable:
+        return
     upload_handler(message, socketio, db_client, s3_client)
 
 
@@ -81,6 +84,8 @@ def process_file(message):
 
     Sends a file for processsing.
     """
+    if disable:
+        return
     process_handler(message, socketio, db_client, s3_client, bedrock_client)
 
 
@@ -111,6 +116,8 @@ def delete_file(message):
 
     Deletes a given file.
     """
+    if disable:
+        return
     delete_handler(message, socketio, db_client, s3_client)
 
 

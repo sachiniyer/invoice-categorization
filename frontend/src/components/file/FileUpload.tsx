@@ -84,6 +84,11 @@ const FileUpload: React.FC = () => {
 
   const handleFiles = useCallback(
     (files: FileList) => {
+      if (process.env.REACT_APP_DISABLE?.toLowerCase() === "true") {
+        alert("File upload is disabled for demo, run it locally");
+        return;
+      }
+
       console.log("Dropped files:", files);
       if (socket == null) {
         return;
