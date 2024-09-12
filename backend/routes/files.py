@@ -41,6 +41,7 @@ def error_handler(e):
 
     handles errors and returns understandable error
     """
+    print(e)
     if isinstance(e, CustomError):
         message, response = e.response()
         return json.dumps({"status": False, "error": message, "response": response})

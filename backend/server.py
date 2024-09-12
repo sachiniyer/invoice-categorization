@@ -39,9 +39,9 @@ session = boto3.Session(
     region_name=os.environ.get("AWS_REGION"),
 )
 
-db_client = session.client("dynamodb")
-s3_client = session.client("s3")
-bedrock_client = session.client("bedrock")
+db_client = session.client("dynamodb", region_name=os.environ.get("AWS_REGION"))
+s3_client = session.client("s3", region_name=os.environ.get("AWS_REGION"))
+bedrock_client = session.client("bedrock", region_name=os.environ.get("AWS_REGION"))
 disable = os.environ.get("DISABLE", "False").lower() == "true"
 
 

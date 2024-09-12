@@ -23,6 +23,7 @@ def error_handler(e):
 
     handles errors and returns understandable error
     """
+    print(e)
     if isinstance(e, CustomError):
         message, response = e.response()
         return jsonify({"status": False, "error": message}), response
@@ -93,13 +94,13 @@ def user_handler(request, disable, db_client, s3_client):
     This handles all the requests for the user
     """
     try:
+        if request.method == "GET":
+            return "<p>Invoice Categorization API</p>"
+
         if not request.is_json:
             raise JSONError("json invalid", True)
 
         data = request.json
-        if request.method == "GET":
-            return "<p>Invoice Categorization API</p>"
-
         if request.method == "POST":
             try:
                 args = parse_args(["username", "password"], data)

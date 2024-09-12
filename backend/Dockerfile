@@ -12,4 +12,4 @@ ENV FLASK_APP=server.py
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV PYTHONPATH='/'
 
-CMD ["flask", "--app", "server", "run", "--port", "8000"]
+CMD ["flask", "--app", "server", "run", "--port", "8000", "--debug"]
